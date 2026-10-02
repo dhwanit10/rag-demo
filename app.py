@@ -7,7 +7,8 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
-from elevenlabs.client import ElevenLabs
+import base64
+from sarvamai import SarvamAI
 
 # ANSI colors
 CYAN = '\033[96m'
@@ -20,29 +21,37 @@ RESET = '\033[0m'
 def format_docs(docs):
     return "\n\n".join(doc.page_content for doc in docs)
 
-def play_audio(audio_generator):
+def split_text(text, limit=2400):
+    chunks, current = [], ""
+    for sentence in text.replace("\n", " ").split(". "):
+        sentence = sentence.strip()
+        if not sentence:
+            continue
+        sentence += ". "
+        if len(current) + len(sentence) > limit and current:
+            chunks.append(current.strip())
+            current = ""
+        current += sentence
+    if current.strip():
+        chunks.append(current.strip())
+    return chunks
+
+def play_audio(audio_b64_list):
     try:
-        # Initialize pygame mixer
         pygame.mixer.init()
-        
-        # Save audio to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as temp_audio:
-            for chunk in audio_generator:
-                temp_audio.write(chunk)
-            temp_path = temp_audio.name
-            
-        # Play audio
-        pygame.mixer.music.load(temp_path)
-        pygame.mixer.music.play()
-        
-        # Wait for audio to finish
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
-            
-        # Cleanup
-        pygame.mixer.music.unload()
+        for audio_b64 in audio_b64_list:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
+                temp_audio.write(base64.b64decode(audio_b64))
+                temp_path = temp_audio.name
+
+            pygame.mixer.music.load(temp_path)
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(10)
+
+            pygame.mixer.music.unload()
+            os.remove(temp_path)
         pygame.mixer.quit()
-        os.remove(temp_path)
     except Exception as e:
         print(f"{RED}Error playing audio: {e}{RESET}")
 
@@ -54,14 +63,15 @@ def main():
         print(f"{RED}Error: GOOGLE_API_KEY not found in .env{RESET}")
         return
         
-    if not os.environ.get("ELEVENLABS_API_KEY"):
-        print(f"{YELLOW}Warning: ELEVENLABS_API_KEY not found. TTS will not work.{RESET}")
+    if not os.environ.get("SARVAM_API_KEY"):
+        print(f"{YELLOW}Warning: SARVAM_API_KEY not found. TTS will not work.{RESET}")
         has_tts = False
     else:
         has_tts = True
-        elevenlabs_client = ElevenLabs(api_key=os.environ.get("ELEVENLABS_API_KEY"))
+        sarvam_client = SarvamAI(api_subscription_key=os.environ.get("SARVAM_API_KEY"))
 
     persist_directory = os.path.join(os.path.dirname(__file__), "chroma_db")
+
     if not os.path.exists(persist_directory):
         print(f"{RED}Error: ChromaDB directory not found. Please run ingest.py first.{RESET}")
         return
@@ -128,12 +138,16 @@ Answer:"""
             if has_tts:
                 print(f"{YELLOW}(Generating speech...){RESET}")
                 try:
-                    audio = elevenlabs_client.text_to_speech.convert(
-                        text=answer,
-                        voice_id="21m00Tcm4TlvDq8ikWAM",  # Rachel (free tier default)
-                        model_id="eleven_v4"
-                    )
-                    play_audio(audio)
+                    audio_parts = []
+                    for chunk in split_text(answer):
+                        response = sarvam_client.text_to_speech.convert(
+                            text=chunk,
+                            language_code="en-IN",
+                            speaker="shubh",
+                            model="bulbul:v3",
+                        )
+                        audio_parts.extend(response.audios)
+                    play_audio(audio_parts)
                 except Exception as e:
                     print(f"{RED}TTS Error: {e}{RESET}")
                     
