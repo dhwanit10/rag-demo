@@ -21,7 +21,7 @@ A full end-to-end Retrieval-Augmented Generation (RAG) application that answers 
 2. **API Keys**
    Add your API keys to the `.env` file:
    - `GOOGLE_API_KEY`: Get it from Google AI Studio
-   - `ELEVENLABS_API_KEY`: Get it from ElevenLabs (optional, but needed for voice)
+   - `SARVAM_API_KEY`: Get it from ElevenLabs (optional, but needed for voice)
 
 3. **Prepare Documents**
    Create a `documents/` folder and place your PDF books inside it.
