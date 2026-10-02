@@ -37,7 +37,11 @@ A full end-to-end Retrieval-Augmented Generation (RAG) application that answers 
    ```
 
 5. **Run the Application**
-   Start the interactive assistant:
-   ```bash
-   python app.py
-   ```
+   - **Terminal UI**:
+     ```bash
+     python app.py
+     ```
+   - **Streamlit Web UI**:
+     ```bash
+     streamlit run streamlit_app.py
+     ```
