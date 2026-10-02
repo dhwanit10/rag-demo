@@ -18,8 +18,16 @@ YELLOW = '\033[93m'
 RED = '\033[91m'
 RESET = '\033[0m'
 
+# def format_docs(docs):
+#     return "\n\n".join(doc.page_content for doc in docs)
+
 def format_docs(docs):
-    return "\n\n".join(doc.page_content for doc in docs)
+    data = "\n\n".join(
+        f"[Source: page {doc.metadata.get('page', 'unknown') + 1}]\n"
+        f"{doc.page_content}"
+        for doc in docs
+    )
+    return data
 
 def split_text(text, limit=2400):
     chunks, current = [], ""
@@ -107,7 +115,8 @@ Answer:"""
     prompt = PromptTemplate.from_template(template)
 
     rag_chain = (
-        {"context": retriever | format_docs, "question": RunnablePassthrough()}
+        {"context": retriever | format_docs,
+         "question": RunnablePassthrough()}
         | prompt
         | llm
         | StrOutputParser()
